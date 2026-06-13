@@ -8,15 +8,15 @@
 import wx from 'wx';
 
 const GRID_WIDTH = 50;
-const GRID_HEIGHT = 12;
+const GRID_HEIGHT = 18;
 const MIN_PLAY_X = 0;
 const MAX_PLAY_X = GRID_WIDTH - 1;
 const MIN_PLAY_Y = 0;
 const MAX_PLAY_Y = GRID_HEIGHT - 1;
 const INITIAL_SNAKE = [
-  { x: 24, y: 6 },
-  { x: 23, y: 6 },
-  { x: 22, y: 6 }
+  { x: 24, y: 9 },
+  { x: 23, y: 9 },
+  { x: 22, y: 9 }
 ];
 const DIRECTIONS = {
   up: { x: 0, y: -1 },
@@ -32,7 +32,8 @@ const OPPOSITE = {
 };
 const SENSOR_FREQUENCY = 60;
 const TURN_COOLDOWN = 240;
-const ORIENTATION_THRESHOLD = 0.28;
+const ORIENTATION_THRESHOLD = 0.18;
+const ORIENTATION_NEUTRAL_THRESHOLD = 0.07;
 const GYRO_THRESHOLD = 0.75;
 const ACCEL_THRESHOLD = 2.4;
 const INITIAL_SPEED = 460;
@@ -105,7 +106,13 @@ function buildBoardData(snake, food) {
     boardLine8: lines[8],
     boardLine9: lines[9],
     boardLine10: lines[10],
-    boardLine11: lines[11]
+    boardLine11: lines[11],
+    boardLine12: lines[12],
+    boardLine13: lines[13],
+    boardLine14: lines[14],
+    boardLine15: lines[15],
+    boardLine16: lines[16],
+    boardLine17: lines[17]
   };
 }
 
@@ -162,6 +169,12 @@ export default {
     boardLine9: '',
     boardLine10: '',
     boardLine11: '',
+    boardLine12: '',
+    boardLine13: '',
+    boardLine14: '',
+    boardLine15: '',
+    boardLine16: '',
+    boardLine17: '',
     snake: [],
     food: { x: 12, y: 9 },
     direction: 'right',
@@ -366,6 +379,10 @@ export default {
     this.stopMotionSensors();
     this.motionSensors = [];
     this.orientationBase = null;
+    this.orientationLock = {
+      horizontal: false,
+      vertical: false
+    };
     this.activeSensorNames = [];
     this.failedSensorNames = [];
     this.startAbsoluteOrientationSensor();
@@ -384,6 +401,7 @@ export default {
 
     this.motionSensors = [];
     this.orientationBase = null;
+    this.orientationLock = null;
   },
   startAbsoluteOrientationSensor() {
     if (typeof AbsoluteOrientationSensor !== 'function') {
@@ -502,6 +520,8 @@ export default {
       lastGyroMoveAt: now,
       imuText: `${source} ${nextDirection}`
     });
+
+    return true;
   },
   handleOrientationReading(sensor) {
     const quaternion = sensor.quaternion;
@@ -519,19 +539,42 @@ export default {
 
     const yawDelta = normalizeAngle(euler.yaw - this.orientationBase.yaw);
     const pitchDelta = normalizeAngle(euler.pitch - this.orientationBase.pitch);
+    const lock = this.orientationLock || {
+      horizontal: false,
+      vertical: false
+    };
     let nextDirection = '';
 
-    if (Math.abs(yawDelta) > Math.abs(pitchDelta) && Math.abs(yawDelta) > ORIENTATION_THRESHOLD) {
-      nextDirection = yawDelta > 0 ? 'right' : 'left';
-      this.orientationBase = euler;
-    } else if (Math.abs(pitchDelta) > ORIENTATION_THRESHOLD) {
-      nextDirection = pitchDelta > 0 ? 'down' : 'up';
-      this.orientationBase = euler;
+    if (Math.abs(yawDelta) < ORIENTATION_NEUTRAL_THRESHOLD) {
+      lock.horizontal = false;
     }
 
-    this.applyMotionDirection(nextDirection, '方向');
+    if (Math.abs(pitchDelta) < ORIENTATION_NEUTRAL_THRESHOLD) {
+      lock.vertical = false;
+    }
+
+    if (!lock.horizontal && Math.abs(yawDelta) > Math.abs(pitchDelta) && Math.abs(yawDelta) > ORIENTATION_THRESHOLD) {
+      nextDirection = yawDelta > 0 ? 'right' : 'left';
+    } else if (!lock.vertical && Math.abs(pitchDelta) > ORIENTATION_THRESHOLD) {
+      nextDirection = pitchDelta > 0 ? 'down' : 'up';
+    }
+
+    this.orientationLock = lock;
+    if (this.applyMotionDirection(nextDirection, '方向')) {
+      if (nextDirection === 'left' || nextDirection === 'right') {
+        lock.horizontal = true;
+      } else if (nextDirection === 'up' || nextDirection === 'down') {
+        lock.vertical = true;
+      }
+
+      this.orientationLock = lock;
+    }
   },
   handleGyroscopeReading(sensor) {
+    if (this.activeSensorNames && this.activeSensorNames.indexOf('方向') !== -1) {
+      return;
+    }
+
     const x = sensor.x || 0;
     const y = sensor.y || 0;
     const z = sensor.z || 0;
@@ -551,6 +594,10 @@ export default {
     this.applyMotionDirection(nextDirection, '陀螺仪');
   },
   handleAccelerometerReading(sensor) {
+    if (this.activeSensorNames && this.activeSensorNames.indexOf('方向') !== -1) {
+      return;
+    }
+
     const x = sensor.x || 0;
     const y = sensor.y || 0;
     let nextDirection = '';
@@ -716,8 +763,6 @@ export default {
     <view class="hud">
       <view class="hud-main">
         <text class="imu">{{ imuText }}</text>
-        <text class="status">{{ statusText }}</text>
-        <text class="menu-hint">双击控制面板返回菜单</text>
       </view>
       <view class="hud-side">
         <text class="hud-score">{{ score }}</text>
@@ -737,6 +782,12 @@ export default {
       <text class="board-text">{{ boardLine9 }}</text>
       <text class="board-text">{{ boardLine10 }}</text>
       <text class="board-text">{{ boardLine11 }}</text>
+      <text class="board-text">{{ boardLine12 }}</text>
+      <text class="board-text">{{ boardLine13 }}</text>
+      <text class="board-text">{{ boardLine14 }}</text>
+      <text class="board-text">{{ boardLine15 }}</text>
+      <text class="board-text">{{ boardLine16 }}</text>
+      <text class="board-text">{{ boardLine17 }}</text>
     </view>
 
     <view wx:if="{{ resultMessage }}" class="result-mask">
@@ -767,8 +818,8 @@ export default {
   position: relative;
   width: 100%;
   max-width: 500px;
-  min-height: 58px;
-  margin-bottom: 6px;
+  min-height: 34px;
+  margin-bottom: 4px;
 }
 
 .hud-main,
@@ -789,8 +840,8 @@ export default {
   position: absolute;
   top: 0;
   right: 0;
-  width: 90px;
-  flex: 0 0 95px;
+  width: 70px;
+  flex: 0 0 70px;
   align-items: flex-end;
   text-align: right;
   white-space: nowrap;
@@ -806,20 +857,14 @@ export default {
 
 .imu {
   max-height: 28px;
+  padding-right: 76px;
   overflow: hidden;
-}
-
-.menu-hint {
-  color: #8cff55;
-  font-size: 12px;
-  line-height: 14px;
-  text-align: left;
 }
 
 .hud-score {
   color: #e7ff8f;
-  font-size: 38px;
-  line-height: 42px;
+  font-size: 34px;
+  line-height: 36px;
   font-weight: 700;
   text-align: right;
 }
@@ -829,7 +874,7 @@ export default {
   flex-direction: column;
   justify-content: center;
   width: 450px;
-  height: 200px;
+  height: 300px;
   padding: 8px;
   border: 5px solid #75f05c;
   background: #061907;
