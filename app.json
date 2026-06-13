@@ -1,8 +1,9 @@
 {
   "pages": [
-    "pages/index/index"
+    "pages/index/index",
+    "pages/game/game"
   ],
   "window": {
-    "navigationBarTitleText": "my-aiui-chat-agent"
+    "navigationBarTitleText": "AIUI Snake"
   }
 }
