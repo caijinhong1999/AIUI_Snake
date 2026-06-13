@@ -7,16 +7,16 @@
 <script setup>
 import wx from 'wx';
 
-const GRID_WIDTH = 24;
-const GRID_HEIGHT = 10;
+const GRID_WIDTH = 50;
+const GRID_HEIGHT = 12;
 const MIN_PLAY_X = 0;
 const MAX_PLAY_X = GRID_WIDTH - 1;
 const MIN_PLAY_Y = 0;
 const MAX_PLAY_Y = GRID_HEIGHT - 1;
 const INITIAL_SNAKE = [
-  { x: 11, y: 5 },
-  { x: 10, y: 5 },
-  { x: 9, y: 5 }
+  { x: 24, y: 6 },
+  { x: 23, y: 6 },
+  { x: 22, y: 6 }
 ];
 const DIRECTIONS = {
   up: { x: 0, y: -1 },
@@ -104,14 +104,8 @@ function buildBoardData(snake, food) {
     boardLine7: lines[7],
     boardLine8: lines[8],
     boardLine9: lines[9],
-    boardLine10: '',
-    boardLine11: '',
-    boardLine12: '',
-    boardLine13: '',
-    boardLine14: '',
-    boardLine15: '',
-    boardLine16: '',
-    boardLine17: ''
+    boardLine10: lines[10],
+    boardLine11: lines[11]
   };
 }
 
@@ -168,12 +162,6 @@ export default {
     boardLine9: '',
     boardLine10: '',
     boardLine11: '',
-    boardLine12: '',
-    boardLine13: '',
-    boardLine14: '',
-    boardLine15: '',
-    boardLine16: '',
-    boardLine17: '',
     snake: [],
     food: { x: 12, y: 9 },
     direction: 'right',
@@ -249,26 +237,13 @@ export default {
       x: snake[0].x + vector.x,
       y: snake[0].y + vector.y
     };
-    const willEat = sameCell(head, this.data.food);
-    const collisionBody = willEat ? snake : snake.slice(0, -1);
-
-    if (this.isSelfCollision(head, collisionBody)) {
-      snake.unshift(head);
-      this.setData({
-        snake,
-        direction
-      });
-      this.setData(buildBoardData(snake, this.data.food));
-      this.endGame();
-      return;
-    }
-
     if (this.isWallCollision(head)) {
       this.endGame();
       return;
     }
 
-    snake.unshift(head);
+    const willEat = sameCell(head, this.data.food);
+    const nextSnake = [head].concat(snake);
     let food = this.data.food;
     let score = this.data.score;
     let applesEaten = this.data.applesEaten;
@@ -278,7 +253,7 @@ export default {
     if (willEat) {
       score += 10;
       applesEaten += 1;
-      food = this.createFood(snake);
+      food = this.createFood(nextSnake);
 
       if (score % 50 === 0 && speed > MIN_SPEED) {
         speed = Math.max(MIN_SPEED, speed - SPEED_STEP);
@@ -286,18 +261,28 @@ export default {
     }
 
     if (!willEat) {
-      snake.pop();
+      nextSnake.pop();
+    }
+
+    if (this.isSelfCollision(head, nextSnake.slice(1))) {
+      this.setData({
+        snake: nextSnake,
+        direction
+      });
+      this.setData(buildBoardData(nextSnake, food));
+      this.endGame(nextSnake, food);
+      return;
     }
 
     this.setData({
-      snake,
+      snake: nextSnake,
       food,
       score,
       applesEaten,
       speed,
       direction
     });
-    this.setData(buildBoardData(snake, food));
+    this.setData(buildBoardData(nextSnake, food));
 
     if (applesEaten >= APPLE_TARGET) {
       this.completeGame();
@@ -308,16 +293,19 @@ export default {
       this.startGameLoop();
     }
   },
-  endGame() {
+  endGame(finalSnake, finalFood) {
     this.stopGameLoop();
     this.stopMotionSensors();
+    const snake = finalSnake || this.data.snake;
+    const food = finalFood || this.data.food;
+
     this.setData({
       status: 'ended',
       statusText: '传统模式',
       resultMessage: 'Game Over!',
       resultClass: 'game-over'
     });
-    this.setData(buildBoardData(this.data.snake, this.data.food));
+    this.setData(buildBoardData(snake, food));
   },
   completeGame() {
     this.stopGameLoop();
@@ -728,10 +716,10 @@ export default {
     <view class="hud">
       <view class="hud-main">
         <text class="imu">{{ imuText }}</text>
-      </view>
-      <view class="hud-side">
         <text class="status">{{ statusText }}</text>
         <text class="menu-hint">双击控制面板返回菜单</text>
+      </view>
+      <view class="hud-side">
         <text class="hud-score">{{ score }}</text>
       </view>
     </view>
@@ -747,6 +735,8 @@ export default {
       <text class="board-text">{{ boardLine7 }}</text>
       <text class="board-text">{{ boardLine8 }}</text>
       <text class="board-text">{{ boardLine9 }}</text>
+      <text class="board-text">{{ boardLine10 }}</text>
+      <text class="board-text">{{ boardLine11 }}</text>
     </view>
 
     <view wx:if="{{ resultMessage }}" class="result-mask">
@@ -774,9 +764,10 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  position: relative;
   width: 100%;
-  max-width: 430px;
-  min-height: 52px;
+  max-width: 500px;
+  min-height: 58px;
   margin-bottom: 6px;
 }
 
@@ -787,13 +778,22 @@ export default {
 }
 
 .hud-main {
-  width: 270px;
+  width: 400px;
+  flex: 1;
+  min-width: 0;
   align-items: flex-start;
+  text-align: left;
 }
 
 .hud-side {
-  width: 150px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 90px;
+  flex: 0 0 95px;
   align-items: flex-end;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .hud-label,
@@ -805,8 +805,7 @@ export default {
 }
 
 .imu {
-  width: 270px;
-  max-height: 42px;
+  max-height: 28px;
   overflow: hidden;
 }
 
@@ -814,22 +813,23 @@ export default {
   color: #8cff55;
   font-size: 12px;
   line-height: 14px;
-  text-align: right;
+  text-align: left;
 }
 
 .hud-score {
   color: #e7ff8f;
-  font-size: 30px;
-  line-height: 32px;
+  font-size: 38px;
+  line-height: 42px;
   font-weight: 700;
+  text-align: right;
 }
 
 .board {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   width: 450px;
   height: 200px;
-  justify-content: center;
   padding: 8px;
   border: 5px solid #75f05c;
   background: #061907;
@@ -843,7 +843,7 @@ export default {
   font-family: Consolas, Monaco, "Courier New", monospace;
   font-size: 16px;
   line-height: 16px;
-  letter-spacing: 8px;
+  letter-spacing: 0;
   text-align: center;
   white-space: pre;
 }
