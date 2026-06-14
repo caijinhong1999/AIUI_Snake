@@ -5,7 +5,7 @@
 </script>
 
 <script setup>
-import wx from 'wx';
+import Tools from '../../Tools/tools.js';
 
 const GRID_WIDTH = 44;
 const GRID_HEIGHT = 18;
@@ -24,23 +24,10 @@ const DIRECTIONS = {
   left: { x: -1, y: 0 },
   right: { x: 1, y: 0 }
 };
-const OPPOSITE = {
-  up: 'down',
-  down: 'up',
-  left: 'right',
-  right: 'left'
-};
-const SENSOR_FREQUENCY = 60;
-const TURN_COOLDOWN = 240;
-const ORIENTATION_THRESHOLD = 0.18;
-const ORIENTATION_NEUTRAL_THRESHOLD = 0.07;
-const GYRO_THRESHOLD = 0.75;
-const ACCEL_THRESHOLD = 2.4;
 const INITIAL_SPEED = 460;
 const MIN_SPEED = 220;
 const SPEED_STEP = 25;
 const APPLE_TARGET = 10;
-const DOUBLE_TAP_MS = 450;
 const LEFT_TURN = {
   up: 'left',
   left: 'down',
@@ -116,45 +103,6 @@ function buildBoardData(snake, food) {
   };
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function normalizeAngle(angle) {
-  let normalized = angle;
-
-  while (normalized > Math.PI) {
-    normalized -= Math.PI * 2;
-  }
-
-  while (normalized < -Math.PI) {
-    normalized += Math.PI * 2;
-  }
-
-  return normalized;
-}
-
-function quaternionToEuler(quaternion) {
-  const x = quaternion[0];
-  const y = quaternion[1];
-  const z = quaternion[2];
-  const w = quaternion[3];
-  const sinRoll = 2 * (w * x + y * z);
-  const cosRoll = 1 - 2 * (x * x + y * y);
-  const roll = Math.atan2(sinRoll, cosRoll);
-  const sinPitch = 2 * (w * y - z * x);
-  const pitch = Math.asin(clamp(sinPitch, -1, 1));
-  const sinYaw = 2 * (w * z + x * y);
-  const cosYaw = 1 - 2 * (y * y + z * z);
-  const yaw = Math.atan2(sinYaw, cosYaw);
-
-  return {
-    roll,
-    pitch,
-    yaw
-  };
-}
-
 export default {
   data: {
     boardLine0: '',
@@ -186,26 +134,22 @@ export default {
     statusText: '传统模式',
     resultMessage: '',
     resultClass: '',
-    imuText: 'IMU 未启动',
-    lastGyroMoveAt: 0
+    controlHint: '等待前滑或后滑'
   },
   onLoad() {
     this.restartGame();
   },
   onUnload() {
     this.stopGameLoop();
-    this.stopMotionSensors();
   },
   onHide() {
     this.stopGameLoop();
-    this.stopMotionSensors();
   },
   restartGame() {
     const snake = INITIAL_SNAKE.map((cell) => ({ ...cell }));
     const food = this.createFood(snake);
 
     this.stopGameLoop();
-    this.stopMotionSensors();
     this.setData({
       snake,
       food,
@@ -218,11 +162,10 @@ export default {
       statusText: '传统模式',
       resultMessage: '',
       resultClass: '',
-      lastGyroMoveAt: 0
+      controlHint: '等待前滑或后滑'
     });
     this.setData(buildBoardData(snake, food));
 
-    this.startMotionSensors();
     this.startGameLoop();
   },
   startGameLoop() {
@@ -308,7 +251,6 @@ export default {
   },
   endGame(finalSnake, finalFood) {
     this.stopGameLoop();
-    this.stopMotionSensors();
     const snake = finalSnake || this.data.snake;
     const food = finalFood || this.data.food;
 
@@ -322,7 +264,6 @@ export default {
   },
   completeGame() {
     this.stopGameLoop();
-    this.stopMotionSensors();
     this.setData({
       status: 'won',
       statusText: '传统模式',
@@ -352,410 +293,51 @@ export default {
   isSelfCollision(head, snake) {
     return snake.some((part) => sameCell(part, head));
   },
-  requestDirection(nextDirection) {
+  setDirection(nextDirection) {
     if (!DIRECTIONS[nextDirection]) {
       return false;
     }
 
-    if (OPPOSITE[this.data.direction] === nextDirection) {
-      return false;
-    }
-
     this.setData({
+      direction: nextDirection,
       pendingDirection: nextDirection
     });
 
     return true;
   },
   turnLeft() {
-    const baseDirection = this.data.pendingDirection || this.data.direction;
-    return this.requestDirection(LEFT_TURN[baseDirection]);
+    const nextDirection = LEFT_TURN[this.data.direction];
+
+    return this.setDirection(nextDirection);
   },
   turnRight() {
-    const baseDirection = this.data.pendingDirection || this.data.direction;
-    return this.requestDirection(RIGHT_TURN[baseDirection]);
+    const nextDirection = RIGHT_TURN[this.data.direction];
+
+    return this.setDirection(nextDirection);
   },
-  startMotionSensors() {
-    this.stopMotionSensors();
-    this.motionSensors = [];
-    this.orientationBase = null;
-    this.orientationLock = {
-      horizontal: false,
-      vertical: false
-    };
-    this.activeSensorNames = [];
-    this.failedSensorNames = [];
-    this.startAbsoluteOrientationSensor();
-    this.startGyroscopeSensor();
-    this.startAccelerometerSensor();
-    this.updateImuText();
-  },
-  stopMotionSensors() {
-    if (this.motionSensors) {
-      this.motionSensors.forEach((sensor) => {
-        if (sensor && typeof sensor.stop === 'function') {
-          sensor.stop();
-        }
-      });
-    }
-
-    this.motionSensors = [];
-    this.orientationBase = null;
-    this.orientationLock = null;
-  },
-  startAbsoluteOrientationSensor() {
-    if (typeof AbsoluteOrientationSensor !== 'function') {
-      this.failedSensorNames.push('方向');
-      return;
-    }
-
-    this.createMotionSensor({
-      name: '方向',
-      SensorClass: AbsoluteOrientationSensor,
-      onReading: (sensor) => this.handleOrientationReading(sensor)
-    });
-  },
-  startGyroscopeSensor() {
-    if (typeof Gyroscope !== 'function') {
-      this.failedSensorNames.push('陀螺仪');
-      return;
-    }
-
-    this.createMotionSensor({
-      name: '陀螺仪',
-      SensorClass: Gyroscope,
-      onReading: (sensor) => this.handleGyroscopeReading(sensor)
-    });
-  },
-  startAccelerometerSensor() {
-    if (typeof Accelerometer !== 'function') {
-      this.failedSensorNames.push('加速度');
-      return;
-    }
-
-    this.createMotionSensor({
-      name: '加速度',
-      SensorClass: Accelerometer,
-      onReading: (sensor) => this.handleAccelerometerReading(sensor)
-    });
-  },
-  createMotionSensor(options) {
-    let sensor = null;
-
-    try {
-      sensor = new options.SensorClass({ frequency: SENSOR_FREQUENCY });
-    } catch (error) {
-      this.noteSensorFailure(options.name, error.message || '创建失败');
-      return;
-    }
-
-    sensor.addEventListener('activate', () => {
-      if (this.activeSensorNames.indexOf(options.name) === -1) {
-        this.activeSensorNames.push(options.name);
-      }
-
-      this.updateImuText();
-    });
-
-    sensor.addEventListener('reading', () => {
-      options.onReading(sensor);
-    });
-
-    sensor.addEventListener('error', (event) => {
-      const message = event && (event.message || event.error) ? event.message || event.error : '不可用';
-      this.noteSensorFailure(options.name, message);
-    });
-
-    try {
-      sensor.start();
-      this.motionSensors.push(sensor);
-    } catch (error) {
-      this.noteSensorFailure(options.name, error.message || '启动失败');
-    }
-  },
-  noteSensorFailure(name, message) {
-    if (this.failedSensorNames.indexOf(name) === -1) {
-      this.failedSensorNames.push(name);
-    }
-
-    this.setData({
-      imuText: `${name}${message}，按键可调试`
-    });
-  },
-  updateImuText() {
-    if (this.activeSensorNames.length > 0) {
-      this.setData({
-        imuText: `IMU ${this.activeSensorNames.join('/')}已启动`
-      });
-      return;
-    }
-
-    if (this.failedSensorNames.length > 0) {
-      this.setData({
-        imuText: `IMU ${this.failedSensorNames.join('/')}不可用，按键可调试`
-      });
-      return;
-    }
-
-    this.setData({
-      imuText: 'IMU 检测中，按键可调试'
-    });
-  },
-  applyMotionDirection(nextDirection, source) {
-    const now = Date.now();
-
-    if (now - this.data.lastGyroMoveAt < TURN_COOLDOWN) {
-      return;
-    }
-
-    if (!nextDirection) {
-      return;
-    }
-
-    if (!this.requestDirection(nextDirection)) {
-      return;
-    }
-
-    this.setData({
-      lastGyroMoveAt: now,
-      imuText: `${source} ${nextDirection}`
-    });
-
-    return true;
-  },
-  handleOrientationReading(sensor) {
-    const quaternion = sensor.quaternion;
-
-    if (!quaternion || quaternion.length !== 4) {
-      return;
-    }
-
-    const euler = quaternionToEuler(quaternion);
-
-    if (!this.orientationBase) {
-      this.orientationBase = euler;
-      return;
-    }
-
-    const yawDelta = normalizeAngle(euler.yaw - this.orientationBase.yaw);
-    const pitchDelta = normalizeAngle(euler.pitch - this.orientationBase.pitch);
-    const lock = this.orientationLock || {
-      horizontal: false,
-      vertical: false
-    };
-    let nextDirection = '';
-
-    if (Math.abs(yawDelta) < ORIENTATION_NEUTRAL_THRESHOLD) {
-      lock.horizontal = false;
-    }
-
-    if (Math.abs(pitchDelta) < ORIENTATION_NEUTRAL_THRESHOLD) {
-      lock.vertical = false;
-    }
-
-    if (!lock.horizontal && Math.abs(yawDelta) > Math.abs(pitchDelta) && Math.abs(yawDelta) > ORIENTATION_THRESHOLD) {
-      nextDirection = yawDelta > 0 ? 'right' : 'left';
-    } else if (!lock.vertical && Math.abs(pitchDelta) > ORIENTATION_THRESHOLD) {
-      nextDirection = pitchDelta > 0 ? 'down' : 'up';
-    }
-
-    this.orientationLock = lock;
-    if (this.applyMotionDirection(nextDirection, '方向')) {
-      if (nextDirection === 'left' || nextDirection === 'right') {
-        lock.horizontal = true;
-      } else if (nextDirection === 'up' || nextDirection === 'down') {
-        lock.vertical = true;
-      }
-
-      this.orientationLock = lock;
-    }
-  },
-  handleGyroscopeReading(sensor) {
-    if (this.activeSensorNames && this.activeSensorNames.indexOf('方向') !== -1) {
-      return;
-    }
-
-    const x = sensor.x || 0;
-    const y = sensor.y || 0;
-    const z = sensor.z || 0;
-    const absX = Math.abs(x);
-    const absY = Math.abs(y);
-    const absZ = Math.abs(z);
-    let nextDirection = '';
-
-    if (absZ >= absX && absZ >= absY && absZ > GYRO_THRESHOLD) {
-      nextDirection = z > 0 ? 'right' : 'left';
-    } else if (absX >= absY && absX > GYRO_THRESHOLD) {
-      nextDirection = x > 0 ? 'down' : 'up';
-    } else if (absY > GYRO_THRESHOLD) {
-      nextDirection = y > 0 ? 'right' : 'left';
-    }
-
-    this.applyMotionDirection(nextDirection, '陀螺仪');
-  },
-  handleAccelerometerReading(sensor) {
-    if (this.activeSensorNames && this.activeSensorNames.indexOf('方向') !== -1) {
-      return;
-    }
-
-    const x = sensor.x || 0;
-    const y = sensor.y || 0;
-    let nextDirection = '';
-
-    if (Math.abs(x) > Math.abs(y) && Math.abs(x) > ACCEL_THRESHOLD) {
-      nextDirection = x > 0 ? 'right' : 'left';
-    } else if (Math.abs(y) > ACCEL_THRESHOLD) {
-      nextDirection = y > 0 ? 'down' : 'up';
-    }
-
-    this.applyMotionDirection(nextDirection, '加速度');
-  },
-  getKeyCode(event) {
-    return event && (event.code || event.key || event.keyCode || event.detail && (event.detail.code || event.detail.key || event.detail.keyCode));
-  },
-  preventDefault(event) {
-    if (event && typeof event.preventDefault === 'function') {
-      event.preventDefault();
-    }
-  },
-  isConfirmKey(code) {
-    return code === 'GlobalHook'
-      || code === 'Enter'
-      || code === 'NumpadEnter'
-      || code === 'Space'
-      || code === ' '
-      || code === 13
-      || code === 32;
-  },
-  navigateToMenu() {
-    this.stopGameLoop();
-    this.stopMotionSensors();
-
-    if (wx && typeof wx.redirectTo === 'function') {
-      wx.redirectTo({
-        url: '/pages/index/index'
-      });
-      return;
-    }
-
-    if (wx && typeof wx.navigateBack === 'function') {
-      wx.navigateBack();
-    }
-  },
-  normalizeDirectionKey(code) {
-    const keyMap = {
-      ArrowUp: 'up',
-      Up: 'up',
-      KeyW: 'up',
-      w: 'up',
-      W: 'up',
-      38: 'up',
-      ArrowDown: 'down',
-      Down: 'down',
-      KeyS: 'down',
-      s: 'down',
-      S: 'down',
-      40: 'down',
-      ArrowLeft: 'left',
-      Left: 'left',
-      KeyA: 'left',
-      a: 'left',
-      A: 'left',
-      37: 'left',
-      ArrowRight: 'right',
-      Right: 'right',
-      KeyD: 'right',
-      d: 'right',
-      D: 'right',
-      39: 'right'
-    };
-
-    return keyMap[code];
-  },
-  normalizeSlideKey(code) {
-    const slideMap = {
-      ArrowUp: 'forward',
-      Up: 'forward',
-      38: 'forward',
-      ArrowDown: 'backward',
-      Down: 'backward',
-      40: 'backward'
-    };
-
-    return slideMap[code];
-  },
-  shouldSkipDuplicateKey(code) {
-    const now = Date.now();
-
-    if (this.lastHandledKey === code && now - this.lastHandledKeyAt < 80) {
-      return true;
-    }
-
-    this.lastHandledKey = code;
-    this.lastHandledKeyAt = now;
-    return false;
-  },
-  handleKeyEvent(event, phase) {
-    const code = this.getKeyCode(event);
-    const slide = this.normalizeSlideKey(code);
-    const direction = this.normalizeDirectionKey(code);
-
-    if (this.isConfirmKey(code)) {
-      this.preventDefault(event);
-      if (phase === 'down') {
-        return;
-      }
-      this.handlePanelConfirm();
-      return;
-    }
+  handleSlideEvent(event) {
+    const slideEvent = Tools.getSlideEvent(event);
+    const slide = slideEvent.slide;
 
     if (slide === 'forward') {
-      this.preventDefault(event);
-      if (this.shouldSkipDuplicateKey(code)) {
-        return;
-      }
-
+      Tools.preventDefault(event);
       this.turnLeft();
+      this.setData({
+        controlHint: '检测到前滑，蛇左转。'
+      });
       return;
     }
 
     if (slide === 'backward') {
-      this.preventDefault(event);
-      if (this.shouldSkipDuplicateKey(code)) {
-        return;
-      }
-
+      Tools.preventDefault(event);
       this.turnRight();
-      return;
+      this.setData({
+        controlHint: '检测到后滑，蛇右转。'
+      });
     }
-
-    if (this.shouldSkipDuplicateKey(code)) {
-      return;
-    }
-
-    if (direction) {
-      this.preventDefault(event);
-      this.requestDirection(direction);
-      return;
-    }
-
-  },
-  handlePanelConfirm() {
-    const now = Date.now();
-
-    if (this.lastPanelConfirmAt && now - this.lastPanelConfirmAt <= DOUBLE_TAP_MS) {
-      this.lastPanelConfirmAt = 0;
-      this.navigateToMenu();
-      return;
-    }
-
-    this.lastPanelConfirmAt = now;
-  },
-  onKeyDown(event) {
-    this.handleKeyEvent(event, 'down');
   },
   onKeyUp(event) {
-    this.handleKeyEvent(event, 'up');
+    this.handleSlideEvent(event);
   }
 }
 </script>
@@ -764,7 +346,7 @@ export default {
   <view class="game">
     <view class="hud">
       <view class="hud-main">
-        <text class="imu">{{ imuText }}</text>
+        <text class="control-hint">{{ controlHint }}</text>
       </view>
       <view class="hud-side">
         <text class="hud-score">{{ score }}</text>
@@ -851,13 +433,13 @@ export default {
 
 .hud-label,
 .status,
-.imu {
+.control-hint {
   color: #8ee05f;
   font-size: 12px;
   line-height: 14px;
 }
 
-.imu {
+.control-hint {
   max-height: 28px;
   padding-right: 76px;
   overflow: hidden;
