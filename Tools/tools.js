@@ -1,26 +1,26 @@
 const IMU_DEFAULT_OPTIONS = {
   frequency: 60,
-  resetDegrees: 8,
+  resetDegrees: 20,
   minStableReadings: 1,
   debounceMs: 450,
   gyroNoiseFloor: 0.003,
   angleTriggerDegrees: {
-    left: 7,
-    right: 10,
-    up: 10,
-    down: 5
+    left: 2,
+    right: 2,
+    up: 2,
+    down: 2
   },
   speedTriggerDegrees: {
-    left: 24,
-    right: 40,
-    up: 40,
-    down: 40
+    left: 2,
+    right: 2,
+    up: 2,
+    down: 2
   },
   speedTriggerDegreesPerSecond: {
-    left: 7,
-    right: 10,
-    up: 7,
-    down: 5
+    left: 2,
+    right: 2,
+    up: 2,
+    down: 2
   }
 };
 

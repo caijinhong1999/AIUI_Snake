@@ -96,13 +96,13 @@ export default {
     if (wx && typeof wx.navigateTo === 'function') {
       if (this.data.selectedMode === 'infinite') {
         wx.navigateTo({
-          url: '/pages/infinite/infinite?mode=infinite'
+          url: '/pages/game/infinite?mode=infinite'
         });
         return;
       }
 
       wx.navigateTo({
-        url: '/pages/game/game?mode=classic'
+        url: '/pages/game/traditional?mode=classic'
       });
       return;
     }

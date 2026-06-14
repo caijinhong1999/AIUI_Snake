@@ -1,8 +1,8 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/game/game",
-    "pages/infinite/infinite",
+    "pages/game/traditional",
+    "pages/game/infinite",
     "pages/test/testArrow",
     "pages/test/testIMU"
   ],
