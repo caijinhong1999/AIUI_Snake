@@ -12,12 +12,12 @@ const MODES = ['classic', 'infinite', 'testIMU'];
 
 export default {
   data: {
-    selectedMode: 'classic',
-    classicModeClass: 'selected',
-    infiniteModeClass: '',
+    selectedMode: 'infinite',
+    classicModeClass: '',
+    infiniteModeClass: 'selected',
     testArrowModeClass: '',
     testIMUModeClass: '',
-    homeHint: '再次点击或按确认键进入传统模式'
+    homeHint: '再次点击或按确认键进入无限流模式'
   },
   selectClassicMode() {
     if (this.data.selectedMode === 'classic') {
@@ -51,7 +51,7 @@ export default {
   setSelectedMode(mode) {
     const hintMap = {
       classic: '再次点击或按确认键进入传统模式',
-      infinite: '无限流模式尚未实现',
+      infinite: '再次点击或按确认键进入无限流模式',
       testArrow: '滑动测试已禁用',
       testIMU: '再次点击或按确认键进入 IMU 测试'
     };
@@ -93,14 +93,14 @@ export default {
       return;
     }
 
-    if (this.data.selectedMode !== 'classic') {
-      this.setData({
-        homeHint: '无限流模式尚未实现，请选择传统模式'
-      });
-      return;
-    }
-
     if (wx && typeof wx.navigateTo === 'function') {
+      if (this.data.selectedMode === 'infinite') {
+        wx.navigateTo({
+          url: '/pages/infinite/infinite?mode=infinite'
+        });
+        return;
+      }
+
       wx.navigateTo({
         url: '/pages/game/game?mode=classic'
       });
@@ -181,9 +181,9 @@ export default {
         <text class="mode-copy">撞墙或撞到自己即结束</text>
       </view>
 
-      <view class="mode-button {{ infiniteModeClass }} disabled" bindtap="selectInfiniteMode">
+      <view class="mode-button {{ infiniteModeClass }}" bindtap="selectInfiniteMode">
         <text class="mode-title">无限流模式</text>
-        <text class="mode-copy">穿墙循环，后续接入</text>
+        <text class="mode-copy">穿墙循环，只会撞到自己</text>
       </view>
 
       <view class="mode-button {{ testArrowModeClass }} disabled" bindtap="selectTestArrowMode">

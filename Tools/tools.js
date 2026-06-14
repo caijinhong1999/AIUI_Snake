@@ -7,13 +7,13 @@ const IMU_DEFAULT_OPTIONS = {
   angleTriggerDegrees: {
     left: 7,
     right: 10,
-    up: 13,
+    up: 10,
     down: 5
   },
   speedTriggerDegrees: {
     left: 24,
     right: 40,
-    up: 45,
+    up: 40,
     down: 40
   },
   speedTriggerDegreesPerSecond: {
