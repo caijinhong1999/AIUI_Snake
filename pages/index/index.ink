@@ -12,12 +12,12 @@ const MODES = ['classic', 'infinite', 'testIMU'];
 
 export default {
   data: {
-    selectedMode: 'testIMU',
-    classicModeClass: '',
+    selectedMode: 'classic',
+    classicModeClass: 'selected',
     infiniteModeClass: '',
     testArrowModeClass: '',
-    testIMUModeClass: 'selected',
-    homeHint: '再次点击或按确认键进入 IMU 测试'
+    testIMUModeClass: '',
+    homeHint: '再次点击或按确认键进入传统模式'
   },
   selectClassicMode() {
     if (this.data.selectedMode === 'classic') {

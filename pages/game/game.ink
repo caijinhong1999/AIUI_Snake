@@ -40,6 +40,18 @@ const RIGHT_TURN = {
   down: 'left',
   left: 'up'
 };
+const OPPOSITE_DIRECTION = {
+  up: 'down',
+  down: 'up',
+  left: 'right',
+  right: 'left'
+};
+const DIRECTION_TEXT = {
+  up: '向上',
+  down: '向下',
+  left: '向左',
+  right: '向右'
+};
 
 function sameCell(a, b) {
   return a.x === b.x && a.y === b.y;
@@ -138,18 +150,23 @@ export default {
   },
   onLoad() {
     this.restartGame();
+    this.startHeadDirectionControl();
   },
   onUnload() {
     this.stopGameLoop();
+    this.stopHeadDirectionControl();
   },
   onHide() {
     this.stopGameLoop();
+    this.stopHeadDirectionControl();
   },
   restartGame() {
     const snake = INITIAL_SNAKE.map((cell) => ({ ...cell }));
     const food = this.createFood(snake);
 
     this.stopGameLoop();
+    this.currentDirection = 'right';
+    this.nextDirection = 'right';
     this.setData({
       snake,
       food,
@@ -165,6 +182,10 @@ export default {
       controlHint: '等待前滑或后滑'
     });
     this.setData(buildBoardData(snake, food));
+
+    if (this.headTracker) {
+      this.headTracker.reset();
+    }
 
     this.startGameLoop();
   },
@@ -186,7 +207,7 @@ export default {
       return;
     }
 
-    const direction = this.data.pendingDirection;
+    const direction = this.nextDirection || this.data.pendingDirection || this.data.direction;
     const vector = DIRECTIONS[direction];
     const snake = this.data.snake.map((cell) => ({ ...cell }));
     const head = {
@@ -223,7 +244,8 @@ export default {
     if (this.isSelfCollision(head, nextSnake.slice(1))) {
       this.setData({
         snake: nextSnake,
-        direction
+        direction,
+        pendingDirection: direction
       });
       this.setData(buildBoardData(nextSnake, food));
       this.endGame(nextSnake, food);
@@ -236,8 +258,11 @@ export default {
       score,
       applesEaten,
       speed,
-      direction
+      direction,
+      pendingDirection: direction
     });
+    this.currentDirection = direction;
+    this.nextDirection = direction;
     this.setData(buildBoardData(nextSnake, food));
 
     if (applesEaten >= APPLE_TARGET) {
@@ -298,6 +323,8 @@ export default {
       return false;
     }
 
+    this.currentDirection = this.currentDirection || this.data.direction;
+    this.nextDirection = nextDirection;
     this.setData({
       direction: nextDirection,
       pendingDirection: nextDirection
@@ -306,14 +333,72 @@ export default {
     return true;
   },
   turnLeft() {
-    const nextDirection = LEFT_TURN[this.data.direction];
+    const currentDirection = this.nextDirection || this.currentDirection || this.data.pendingDirection || this.data.direction;
+    const nextDirection = LEFT_TURN[currentDirection];
 
     return this.setDirection(nextDirection);
   },
   turnRight() {
-    const nextDirection = RIGHT_TURN[this.data.direction];
+    const currentDirection = this.nextDirection || this.currentDirection || this.data.pendingDirection || this.data.direction;
+    const nextDirection = RIGHT_TURN[currentDirection];
 
     return this.setDirection(nextDirection);
+  },
+  setAbsoluteDirection(targetDirection) {
+    const currentDirection = this.nextDirection || this.currentDirection || this.data.pendingDirection || this.data.direction;
+
+    if (!DIRECTIONS[targetDirection] || targetDirection === currentDirection) {
+      return false;
+    }
+
+    if (targetDirection === OPPOSITE_DIRECTION[currentDirection]) {
+      return false;
+    }
+
+    return this.setDirection(targetDirection);
+  },
+  startHeadDirectionControl() {
+    this.stopHeadDirectionControl();
+    this.headTracker = Tools.createHeadDirectionTracker({
+      onActivate: () => {
+        this.setData({
+          controlHint: '前后滑动转向，头部绝对方向也可转向。'
+        });
+      },
+      onError: (message) => {
+        this.setData({
+          controlHint: message
+        });
+      },
+      onAction: (action) => {
+        return this.handleHeadDirection(action);
+      }
+    });
+    this.headTracker.start();
+  },
+  stopHeadDirectionControl() {
+    if (this.headTracker) {
+      this.headTracker.stop();
+    }
+
+    this.headTracker = null;
+  },
+  handleHeadDirection(action) {
+    if (this.data.status !== 'playing') {
+      return false;
+    }
+
+    if (this.setAbsoluteDirection(action)) {
+      this.setData({
+        controlHint: `检测到头部${DIRECTION_TEXT[action]}，蛇转向${DIRECTION_TEXT[action]}。`
+      });
+      return true;
+    }
+
+    this.setData({
+      controlHint: `检测到头部${DIRECTION_TEXT[action]}，当前方向不可直接转向。`
+    });
+    return false;
   },
   handleSlideEvent(event) {
     const slideEvent = Tools.getSlideEvent(event);
