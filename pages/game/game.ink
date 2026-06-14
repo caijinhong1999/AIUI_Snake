@@ -7,7 +7,7 @@
 <script setup>
 import wx from 'wx';
 
-const GRID_WIDTH = 50;
+const GRID_WIDTH = 44;
 const GRID_HEIGHT = 18;
 const MIN_PLAY_X = 0;
 const MAX_PLAY_X = GRID_WIDTH - 1;
@@ -69,7 +69,7 @@ function buildBoardLines(snake, food) {
     let text = '';
 
     for (let x = 0; x < GRID_WIDTH; x += 1) {
-      let symbol = ' ';
+      let symbol = '.';
 
       if (sameCell(food, { x, y })) {
         symbol = '*';

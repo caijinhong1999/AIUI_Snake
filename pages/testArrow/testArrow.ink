@@ -5,6 +5,8 @@
 </script>
 
 <script setup>
+import Tools from '../../Tools/tools.js';
+
 const MAX_LOGS = 6;
 
 function formatTime(date) {
@@ -31,9 +33,6 @@ export default {
     logLine4: '',
     logLine5: ''
   },
-  getKeyCode(event) {
-    return event && (event.code || event.key || event.keyCode || event.detail && (event.detail.code || event.detail.key || event.detail.keyCode));
-  },
   pushLog(text) {
     const logs = this.logs || [];
     const nextLogs = [text].concat(logs).slice(0, MAX_LOGS);
@@ -48,13 +47,10 @@ export default {
       logLine5: nextLogs[5] || ''
     });
   },
-  preventDefault(event) {
-    if (event && typeof event.preventDefault === 'function') {
-      event.preventDefault();
-    }
-  },
   handleSlideEvent(event, phase) {
-    const code = this.getKeyCode(event);
+    const slideEvent = Tools.getSlideEvent(event);
+    const code = slideEvent.code;
+    const slide = slideEvent.slide;
     const time = formatTime(new Date());
     const codeText = String(code || '-');
     let action = '未识别';
@@ -63,24 +59,16 @@ export default {
       lastCode: codeText
     };
 
-    switch (code) {
-      case 'ArrowUp':
-      case 'Up':
-      case 38:
-        this.preventDefault(event);
-        action = '后滑';
-        nextData.forwardCount = this.data.forwardCount + 1;
-        break;
-      case 'ArrowDown':
-      case 'Down':
-      case 40:
-        this.preventDefault(event);
-        action = '前滑';
-        nextData.backwardCount = this.data.backwardCount + 1;
-        break;
-      default:
-        nextData.unknownCount = this.data.unknownCount + 1;
-        break;
+    if (slide === 'forward') {
+      Tools.preventDefault(event);
+      action = '前滑';
+      nextData.forwardCount = this.data.forwardCount + 1;
+    } else if (slide === 'backward') {
+      Tools.preventDefault(event);
+      action = '后滑';
+      nextData.backwardCount = this.data.backwardCount + 1;
+    } else {
+      nextData.unknownCount = this.data.unknownCount + 1;
     }
 
     if (action === '后滑') {
@@ -110,11 +98,11 @@ export default {
       <view class="grid">
         <view class="metric">
           <text class="metric-value">{{ forwardCount }}</text>
-          <text class="metric-label">后滑</text>
+          <text class="metric-label">前滑</text>
         </view>
         <view class="metric">
           <text class="metric-value">{{ backwardCount }}</text>
-         <text class="metric-label">前滑</text>
+          <text class="metric-label">后滑</text>
         </view>
         <view class="metric">
           <text class="metric-value">{{ unknownCount }}</text>

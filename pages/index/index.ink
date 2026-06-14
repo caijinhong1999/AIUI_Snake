@@ -6,16 +6,17 @@
 
 <script setup>
 import wx from 'wx';
+import Tools from '../../Tools/tools.js';
 
-const MODES = ['classic', 'infinite', 'testArrow'];
+const MODES = ['classic', 'infinite'];
 
 export default {
   data: {
-    selectedMode: 'testArrow',
-    classicModeClass: '',
+    selectedMode: 'classic',
+    classicModeClass: 'selected',
     infiniteModeClass: '',
-    testArrowModeClass: 'selected',
-    homeHint: '再次点击或按确认键进入滑动测试'
+    testArrowModeClass: '',
+    homeHint: '再次点击或按确认键进入传统模式'
   },
   selectClassicMode() {
     if (this.data.selectedMode === 'classic') {
@@ -34,12 +35,9 @@ export default {
     this.setSelectedMode('infinite');
   },
   selectTestArrowMode() {
-    if (this.data.selectedMode === 'testArrow') {
-      this.openSelectedMode();
-      return;
-    }
-
-    this.setSelectedMode('testArrow');
+    this.setData({
+      homeHint: '滑动测试已禁用，请选择传统模式'
+    });
   },
   setSelectedMode(mode) {
     const hintMap = {
@@ -64,15 +62,8 @@ export default {
   },
   openSelectedMode() {
     if (this.data.selectedMode === 'testArrow') {
-      if (wx && typeof wx.navigateTo === 'function') {
-        wx.navigateTo({
-          url: '/pages/testArrow/testArrow'
-        });
-        return;
-      }
-
       this.setData({
-        homeHint: '当前环境不支持页面跳转'
+        homeHint: '滑动测试已禁用，请选择传统模式'
       });
       return;
     }
@@ -95,14 +86,6 @@ export default {
       homeHint: '当前环境不支持页面跳转'
     });
   },
-  getKeyCode(event) {
-    return event && (event.code || event.key || event.keyCode || event.detail && (event.detail.code || event.detail.key || event.detail.keyCode));
-  },
-  preventDefault(event) {
-    if (event && typeof event.preventDefault === 'function') {
-      event.preventDefault();
-    }
-  },
   isConfirmKey(code) {
     return code === 'GlobalHook'
       || code === 'Enter'
@@ -111,24 +94,6 @@ export default {
       || code === ' '
       || code === 13
       || code === 32;
-  },
-  normalizeDirectionKey(code) {
-    const keyMap = {
-      ArrowUp: 'up',
-      Up: 'up',
-      KeyW: 'up',
-      w: 'up',
-      W: 'up',
-      38: 'up',
-      ArrowDown: 'down',
-      Down: 'down',
-      KeyS: 'down',
-      s: 'down',
-      S: 'down',
-      40: 'down'
-    };
-
-    return keyMap[code];
   },
   shouldSkipDuplicateKey(code) {
     const now = Date.now();
@@ -142,27 +107,28 @@ export default {
     return false;
   },
   handleKeyEvent(event) {
-    const code = this.getKeyCode(event);
-    const direction = this.normalizeDirectionKey(code);
+    const slideEvent = Tools.getSlideEvent(event);
+    const code = slideEvent.code;
+    const slide = slideEvent.slide;
 
     if (this.shouldSkipDuplicateKey(code)) {
       return;
     }
 
-    if (direction === 'up') {
-      this.preventDefault(event);
+    if (slide === 'backward') {
+      Tools.preventDefault(event);
       this.changeSelection(-1);
       return;
     }
 
-    if (direction === 'down') {
-      this.preventDefault(event);
+    if (slide === 'forward') {
+      Tools.preventDefault(event);
       this.changeSelection(1);
       return;
     }
 
     if (this.isConfirmKey(code)) {
-      this.preventDefault(event);
+      Tools.preventDefault(event);
       this.openSelectedMode();
     }
   },
@@ -195,7 +161,7 @@ export default {
         <text class="mode-copy">穿墙循环，后续接入</text>
       </view>
 
-      <view class="mode-button {{ testArrowModeClass }}" bindtap="selectTestArrowMode">
+      <view class="mode-button {{ testArrowModeClass }} disabled" bindtap="selectTestArrowMode">
         <text class="mode-title">滑动测试</text>
         <text class="mode-copy">测试前滑和后滑触发</text>
       </view>
