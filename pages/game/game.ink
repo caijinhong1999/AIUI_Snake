@@ -676,15 +676,9 @@ export default {
     const slideMap = {
       ArrowUp: 'forward',
       Up: 'forward',
-      KeyW: 'forward',
-      w: 'forward',
-      W: 'forward',
       38: 'forward',
       ArrowDown: 'backward',
       Down: 'backward',
-      KeyS: 'backward',
-      s: 'backward',
-      S: 'backward',
       40: 'backward'
     };
 
@@ -715,19 +709,27 @@ export default {
       return;
     }
 
-    if (this.shouldSkipDuplicateKey(code)) {
-      return;
-    }
-
     if (slide === 'forward') {
       this.preventDefault(event);
+      if (this.shouldSkipDuplicateKey(code)) {
+        return;
+      }
+
       this.turnLeft();
       return;
     }
 
     if (slide === 'backward') {
       this.preventDefault(event);
+      if (this.shouldSkipDuplicateKey(code)) {
+        return;
+      }
+
       this.turnRight();
+      return;
+    }
+
+    if (this.shouldSkipDuplicateKey(code)) {
       return;
     }
 

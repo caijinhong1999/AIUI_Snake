@@ -7,14 +7,15 @@
 <script setup>
 import wx from 'wx';
 
-const MODES = ['classic', 'infinite'];
+const MODES = ['classic', 'infinite', 'testArrow'];
 
 export default {
   data: {
-    selectedMode: 'classic',
-    classicModeClass: 'selected',
+    selectedMode: 'testArrow',
+    classicModeClass: '',
     infiniteModeClass: '',
-    homeHint: '按上下键选择，确认键进入'
+    testArrowModeClass: 'selected',
+    homeHint: '再次点击或按确认键进入滑动测试'
   },
   selectClassicMode() {
     if (this.data.selectedMode === 'classic') {
@@ -32,12 +33,27 @@ export default {
 
     this.setSelectedMode('infinite');
   },
+  selectTestArrowMode() {
+    if (this.data.selectedMode === 'testArrow') {
+      this.openSelectedMode();
+      return;
+    }
+
+    this.setSelectedMode('testArrow');
+  },
   setSelectedMode(mode) {
+    const hintMap = {
+      classic: '再次点击或按确认键进入传统模式',
+      infinite: '无限流模式尚未实现',
+      testArrow: '再次点击或按确认键进入滑动测试'
+    };
+
     this.setData({
       selectedMode: mode,
       classicModeClass: mode === 'classic' ? 'selected' : '',
       infiniteModeClass: mode === 'infinite' ? 'selected' : '',
-      homeHint: mode === 'classic' ? '再次点击或按确认键进入传统模式' : '无限流模式尚未实现'
+      testArrowModeClass: mode === 'testArrow' ? 'selected' : '',
+      homeHint: hintMap[mode] || ''
     });
   },
   changeSelection(step) {
@@ -47,6 +63,20 @@ export default {
     this.setSelectedMode(MODES[nextIndex]);
   },
   openSelectedMode() {
+    if (this.data.selectedMode === 'testArrow') {
+      if (wx && typeof wx.navigateTo === 'function') {
+        wx.navigateTo({
+          url: '/pages/testArrow/testArrow'
+        });
+        return;
+      }
+
+      this.setData({
+        homeHint: '当前环境不支持页面跳转'
+      });
+      return;
+    }
+
     if (this.data.selectedMode !== 'classic') {
       this.setData({
         homeHint: '无限流模式尚未实现，请选择传统模式'
@@ -163,6 +193,11 @@ export default {
       <view class="mode-button {{ infiniteModeClass }} disabled" bindtap="selectInfiniteMode">
         <text class="mode-title">无限流模式</text>
         <text class="mode-copy">穿墙循环，后续接入</text>
+      </view>
+
+      <view class="mode-button {{ testArrowModeClass }}" bindtap="selectTestArrowMode">
+        <text class="mode-title">滑动测试</text>
+        <text class="mode-copy">测试前滑和后滑触发</text>
       </view>
     </view>
   </view>
