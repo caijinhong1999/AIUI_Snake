@@ -8,15 +8,16 @@
 import wx from 'wx';
 import Tools from '../../Tools/tools.js';
 
-const MODES = ['classic', 'infinite'];
+const MODES = ['classic', 'infinite', 'testIMU'];
 
 export default {
   data: {
-    selectedMode: 'classic',
-    classicModeClass: 'selected',
+    selectedMode: 'testIMU',
+    classicModeClass: '',
     infiniteModeClass: '',
     testArrowModeClass: '',
-    homeHint: '再次点击或按确认键进入传统模式'
+    testIMUModeClass: 'selected',
+    homeHint: '再次点击或按确认键进入 IMU 测试'
   },
   selectClassicMode() {
     if (this.data.selectedMode === 'classic') {
@@ -39,11 +40,20 @@ export default {
       homeHint: '滑动测试已禁用，请选择传统模式'
     });
   },
+  selectTestIMUMode() {
+    if (this.data.selectedMode === 'testIMU') {
+      this.openSelectedMode();
+      return;
+    }
+
+    this.setSelectedMode('testIMU');
+  },
   setSelectedMode(mode) {
     const hintMap = {
       classic: '再次点击或按确认键进入传统模式',
       infinite: '无限流模式尚未实现',
-      testArrow: '再次点击或按确认键进入滑动测试'
+      testArrow: '滑动测试已禁用',
+      testIMU: '再次点击或按确认键进入 IMU 测试'
     };
 
     this.setData({
@@ -51,6 +61,7 @@ export default {
       classicModeClass: mode === 'classic' ? 'selected' : '',
       infiniteModeClass: mode === 'infinite' ? 'selected' : '',
       testArrowModeClass: mode === 'testArrow' ? 'selected' : '',
+      testIMUModeClass: mode === 'testIMU' ? 'selected' : '',
       homeHint: hintMap[mode] || ''
     });
   },
@@ -61,6 +72,20 @@ export default {
     this.setSelectedMode(MODES[nextIndex]);
   },
   openSelectedMode() {
+    if (this.data.selectedMode === 'testIMU') {
+      if (wx && typeof wx.navigateTo === 'function') {
+        wx.navigateTo({
+          url: '/pages/test/testIMU'
+        });
+        return;
+      }
+
+      this.setData({
+        homeHint: '当前环境不支持页面跳转'
+      });
+      return;
+    }
+
     if (this.data.selectedMode === 'testArrow') {
       this.setData({
         homeHint: '滑动测试已禁用，请选择传统模式'
@@ -165,6 +190,11 @@ export default {
         <text class="mode-title">滑动测试</text>
         <text class="mode-copy">测试前滑和后滑触发</text>
       </view>
+
+      <view class="mode-button {{ testIMUModeClass }}" bindtap="selectTestIMUMode">
+        <text class="mode-title">IMU 测试</text>
+        <text class="mode-copy">识别头部左转右转和上下移动</text>
+      </view>
     </view>
   </view>
 </page>
@@ -187,7 +217,7 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 18px;
 }
 
 .kicker {
@@ -221,7 +251,7 @@ export default {
 .mode-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
   width: 300px;
 }
 
@@ -231,8 +261,8 @@ export default {
   align-items: flex-start;
   justify-content: center;
   width: 100%;
-  min-height: 78px;
-  padding: 12px 16px;
+  min-height: 58px;
+  padding: 8px 14px;
   border: 2px solid #297c3a;
   border-radius: 8px;
   background: #0d351e;
@@ -250,15 +280,15 @@ export default {
 }
 
 .mode-title {
-  font-size: 22px;
-  line-height: 28px;
+  font-size: 18px;
+  line-height: 22px;
   font-weight: 700;
 }
 
 .mode-copy {
-  font-size: 13px;
-  line-height: 18px;
+  font-size: 11px;
+  line-height: 15px;
   color: #9be46c;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 </style>

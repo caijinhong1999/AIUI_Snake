@@ -2,7 +2,8 @@
   "pages": [
     "pages/index/index",
     "pages/game/game",
-    "pages/testArrow/testArrow"
+    "pages/test/testArrow",
+    "pages/test/testIMU"
   ],
   "window": {
     "navigationBarTitleText": "AIUI Snake"
