@@ -68,7 +68,7 @@ function buildBoardLines(snake, food) {
     let text = '';
 
     for (let x = 0; x < GRID_WIDTH; x += 1) {
-      let symbol = '.';
+      let symbol = '\u00A0';
 
       if (sameCell(food, { x, y })) {
         symbol = '*';
@@ -176,6 +176,7 @@ export function createSnakeGamePage(options) {
       this.stopGameLoop();
       this.currentDirection = 'right';
       this.nextDirection = 'right';
+      this.hasPendingTurn = false;
       this.setData({
         snake,
         food,
@@ -274,6 +275,7 @@ export function createSnakeGamePage(options) {
       });
       this.currentDirection = direction;
       this.nextDirection = direction;
+      this.hasPendingTurn = false;
       this.setData(buildBoardData(nextSnake, food));
 
       if (applesEaten >= APPLE_TARGET) {
@@ -334,8 +336,14 @@ export function createSnakeGamePage(options) {
         return false;
       }
 
-      this.currentDirection = this.currentDirection || this.data.direction;
+      const currentDirection = this.currentDirection || this.data.direction;
+
+      if (this.hasPendingTurn || nextDirection === currentDirection || nextDirection === OPPOSITE_DIRECTION[currentDirection]) {
+        return false;
+      }
+
       this.nextDirection = nextDirection;
+      this.hasPendingTurn = true;
       this.setData({
         direction: nextDirection,
         pendingDirection: nextDirection
@@ -344,19 +352,19 @@ export function createSnakeGamePage(options) {
       return true;
     },
     turnLeft() {
-      const currentDirection = this.nextDirection || this.currentDirection || this.data.pendingDirection || this.data.direction;
+      const currentDirection = this.currentDirection || this.data.direction;
       const nextDirection = LEFT_TURN[currentDirection];
 
       return this.setDirection(nextDirection);
     },
     turnRight() {
-      const currentDirection = this.nextDirection || this.currentDirection || this.data.pendingDirection || this.data.direction;
+      const currentDirection = this.currentDirection || this.data.direction;
       const nextDirection = RIGHT_TURN[currentDirection];
 
       return this.setDirection(nextDirection);
     },
     setAbsoluteDirection(targetDirection) {
-      const currentDirection = this.nextDirection || this.currentDirection || this.data.pendingDirection || this.data.direction;
+      const currentDirection = this.currentDirection || this.data.direction;
 
       if (!DIRECTIONS[targetDirection] || targetDirection === currentDirection) {
         return false;
@@ -417,7 +425,10 @@ export function createSnakeGamePage(options) {
 
       if (slide === 'forward') {
         Tools.preventDefault(event);
-        this.turnLeft();
+        if (!this.turnLeft()) {
+          return;
+        }
+
         this.setData({
           controlHint: '检测到前滑，蛇左转。'
         });
@@ -426,7 +437,10 @@ export function createSnakeGamePage(options) {
 
       if (slide === 'backward') {
         Tools.preventDefault(event);
-        this.turnRight();
+        if (!this.turnRight()) {
+          return;
+        }
+
         this.setData({
           controlHint: '检测到后滑，蛇右转。'
         });

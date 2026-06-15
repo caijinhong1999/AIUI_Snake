@@ -1,8 +1,8 @@
 const IMU_DEFAULT_OPTIONS = {
   frequency: 60,
-  resetDegrees: 20,
+  resetDegrees: 2,
   minStableReadings: 1,
-  debounceMs: 450,
+  debounceMs: 260,
   gyroNoiseFloor: 0.003,
   angleTriggerDegrees: {
     left: 2,
@@ -23,6 +23,10 @@ const IMU_DEFAULT_OPTIONS = {
     down: 2
   }
 };
+
+function getOptionValue(value, fallback) {
+  return value === undefined || value === null ? fallback : value;
+}
 
 function radToDeg(value) {
   return value * 180 / Math.PI;
@@ -77,11 +81,11 @@ function mergeImuOptions(options) {
   const customOptions = options || {};
 
   return {
-    frequency: customOptions.frequency || IMU_DEFAULT_OPTIONS.frequency,
-    resetDegrees: customOptions.resetDegrees || IMU_DEFAULT_OPTIONS.resetDegrees,
-    minStableReadings: customOptions.minStableReadings || IMU_DEFAULT_OPTIONS.minStableReadings,
-    debounceMs: customOptions.debounceMs || IMU_DEFAULT_OPTIONS.debounceMs,
-    gyroNoiseFloor: customOptions.gyroNoiseFloor || IMU_DEFAULT_OPTIONS.gyroNoiseFloor,
+    frequency: getOptionValue(customOptions.frequency, IMU_DEFAULT_OPTIONS.frequency),
+    resetDegrees: getOptionValue(customOptions.resetDegrees, IMU_DEFAULT_OPTIONS.resetDegrees),
+    minStableReadings: getOptionValue(customOptions.minStableReadings, IMU_DEFAULT_OPTIONS.minStableReadings),
+    debounceMs: getOptionValue(customOptions.debounceMs, IMU_DEFAULT_OPTIONS.debounceMs),
+    gyroNoiseFloor: getOptionValue(customOptions.gyroNoiseFloor, IMU_DEFAULT_OPTIONS.gyroNoiseFloor),
     angleTriggerDegrees: {
       ...IMU_DEFAULT_OPTIONS.angleTriggerDegrees,
       ...(customOptions.angleTriggerDegrees || {})
@@ -181,11 +185,11 @@ function getHeadAction(axisDelta, axisSpeed, options) {
   const positionAction = getPositionAction(axisDelta, options);
   const speedAction = getFastestSpeedAction(axisSpeed, options);
 
-  if (!positionAction || !speedAction || positionAction !== speedAction) {
-    return '';
+  if (positionAction) {
+    return positionAction;
   }
 
-  return positionAction;
+  return speedAction;
 }
 
 class Tools {
